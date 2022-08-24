@@ -1,64 +1,123 @@
+export default (data, file) => {
+    return extractRoutesFromProgram(data, file)
+}
 
-export default (data, parent) => {
-    let routes = []
-    if (data.type === 'ExportNamedDeclaration') {
-        switch (data.declaration.type) {
-            case 'ClassDeclaration': {
-                if (data.leadingComments) {
-                    let comment = data.leadingComments.reduce((prev, curr) => prev + ' ' + curr.value, '')
-                    parent = extractRouteFromComment(comment, parent)
-                    routes = [...routes, ...parseRoutesFromData(data.declaration.body, extractRouteFromComment(comment, parent))]
+export const extractRoutesFromProgram = (data, file) => {
+    if (data.type !== 'Program') {
+        return []
+    }
+    let currentClassHolder = data.body
+        .filter(item => ['ExportDefaultDeclaration', 'ExportNamedDeclaration'].includes(item.type))
+        .sort((a, b) => {
+            if (a.type === b.type) return 0
+            if (a.type === 'ExportDefaultDeclaration') return -1
+            if (b.type === 'ExportDefaultDeclaration') return 1
+            return 0
+        })
+        .find(item => item.declaration.type === 'ClassDeclaration')
+    if (!currentClassHolder) {
+        return []
+    }
+    let currentClass = currentClassHolder.declaration
+    let comments = [...currentClassHolder.leadingComments || [], ...currentClass.leadingComments || []]
+    let parent = extractRouteFromComment(comments.reduce((prev, curr) => prev + ' ' + curr.value, ''))
+    let methods = currentClass.body.body.filter(item => item.type === 'MethodDefinition' && item.static === true)
+    let routes = methods.map(item => {
+        let comments = [...item.leadingComments || []]
+        let route = extractRouteFromComment(comments.reduce((prev, curr) => prev + ' ' + curr.value, ''))
+        route.file = file.split('\\').join('/')
+        route.className = currentClass.id.name
+        route.classMethod = item.key.name
+        return route
+    })
+    if (parent) {
+        if (parent.role && !Array.isArray(parent.role)) {
+            parent.role = [parent.role]
+        }
+        if (parent.method && !Array.isArray(parent.method)) {
+            parent.method = [parent.method]
+        }
+        routes.forEach(item => {
+            item.path = (parent.path || '') + item.path
+            if (parent.role) {
+                if (!Array.isArray(item.role)) {
+                    item.role = [item.role]
                 }
+                item.role = item.role.filter(role => parent.role.includes(role))
             }
-                break;
-            case 'VariableDeclaration':
-            case 'FunctionDeclaration': {
-                if (data.leadingComments) {
-                    let comment = data.leadingComments.reduce((prev, curr) => prev + ' ' + curr.value, '')
-                    let route = extractRouteFromComment(comment, parent)
-                    routes.push(route)
+            if (parent.method) {
+                if (!Array.isArray(item.method)) {
+                    item.method = [item.method]
                 }
+                item.method = item.method.filter(method => parent.method.includes(method))
             }
-                break;
-            default: {
-                console.log('Unknown type', data.declaration.type)
-            }
-        }
-    } else if (data.type === 'MethodDefinition') {
-        if (data.leadingComments) {
-            let comment = data.leadingComments.reduce((prev, curr) => prev + ' ' + curr.value, '')
-            let route = extractRouteFromComment(comment, parent)
-            routes.push(route)
-        }
-    } else if (data.body) {
-        if (!Array.isArray(data.body)) {
-            data.body = [data.body]
-        }
-        data.body.forEach(item => {
-            routes = [...routes, ...parseRoutesFromData(item, parent)]
         })
     }
     return routes
 }
 
+export const extractRoutesFromDeclaration = (declaration, prependedComments = []) => {
+    let routes = []
+    let comments = [...prependedComments, ...declaration.leadingComments || []]
+        .reduce((prev, curr) => prev + ' ' + curr.value, '')
+        .trim()
+    if (declaration.type === 'FunctionDeclaration') {
+        if (comments) {
+            let route = extractRouteFromComment(comments)
+            routes.push(route)
+        }
+    }
 
-export const extractRouteFromComment = (comment, parent) => {
+
+    if (declaration.type === 'ClassDeclaration') {
+        if (declaration.leadingComments) {
+            let comment = [...commentsCarried, ...declaration.leadingComments].reduce((prev, curr) => prev + ' ' + curr.value, '')
+            routes = parseRoutesFromData(declaration.body, extractRouteFromComment(comment))
+        }
+    } else if (declaration.type === 'VariableDeclaration') {
+        if (declaration.leadingComments) {
+            let comment = [...commentsCarried, ...declaration.leadingComments].reduce((prev, curr) => prev + ' ' + curr.value, '')
+            let route = extractRouteFromComment(comment)
+            routes.push(route)
+        }
+    } else if (declaration.type === 'FunctionDeclaration') {
+        if (declaration.leadingComments) {
+            let comment = [...commentsCarried, ...declaration.leadingComments].reduce((prev, curr) => prev + ' ' + curr.value, '')
+            let route = extractRouteFromComment(comment)
+            routes.push(route)
+        }
+    } else {
+        console.log('Unknown type', declaration.type)
+    }
+    return routes
+}
+
+export const extractRoutesFromClass = (classDeclaration) => {
+
+}
+
+
+export const extractRouteFromComment = (comment) => {
     let route = {
         path: '',
         method: '',
-        role: '',
-        parent: parent
+        role: ''
     }
     let params = extractRouteContent(comment)
+    if (params === false) {
+        return null
+    }
     params.forEach(param => {
         switch (param.arg) {
             case 'path':
                 route.path = param.value;
                 break;
             case 'method':
+            case 'methods':
                 route.method = param.value;
                 break;
             case 'role':
+            case 'roles':
                 route.role = param.value;
                 break;
         }
@@ -76,25 +135,28 @@ export const extractRouteContent = (comment) => {
     // get only Route decorator content
     let regex = /@Route\s*\(/gm
     let content = regex.exec(copy)
+    if (!content || copy.indexOf(')') <= content.index) {
+        return false
+    }
     copy = ''.padEnd(content.index + content[0].length, ' ') + copy.substring(content.index + content[0].length, copy.indexOf(')'))
 
-
-    let args = [...copy.matchAll(/(,|[a-z0-9_]+=)/gmi)]
-    let lastIndex = 0
-    let lastArg = ''
-    let results = args.map(arg => {
-        if (arg[0] === ',') {
-            return {arg: lastArg, value: comment.substring(lastIndex, arg.index)}
+    let args = [...copy.matchAll(/(,(?=\s*[a-z0-9_]+=)|[a-z0-9_]+=)/gmi)]
+    let commas = args.filter(item => item[0] === ',')
+    commas.forEach(item => {
+        comment = comment.substring(0, item.index) + ' ' + comment.substring(item.index + item[0].length)
+    })
+    args = args.filter(item => item[0] !== ',')
+        .reverse()
+    let lastIndex = copy.length
+    return args.map(item => {
+        let index = item.index
+        let arg = comment.substring(index, lastIndex)
+        lastIndex = index
+        return {
+            arg: arg.substring(0, item[0].length - 1),
+            value: parseArgValue(arg.substring(item[0].length))
         }
-        lastArg = arg[0].substring(0, arg[0].length - 1)
-        lastIndex = arg.index + arg[0].length
-    }).filter(arg => arg)
-    results.push({arg: lastArg, value: comment.substring(lastIndex, copy.length)})
-    results = results.map(result => {
-        result.value = parseArgValue(result.value)
-        return result
-    }).filter(result => result.value && result.value.length > 0)
-    return results
+    })
 }
 
 

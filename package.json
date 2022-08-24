@@ -1,6 +1,6 @@
 {
   "name": "coalcodes-route-builder",
-  "version": "0.0.0",
+  "version": "0.0.0-beta.1",
   "description": "A library to create routes based on comments (like symfony) or configurations (like yaml, json, etc)",
   "main": "index.js",
   "scripts": {
@@ -8,17 +8,22 @@
   },
   "type": "module",
   "keywords": [
+    "coal",
+    "coalcodes",
+    "coal-codes",
     "route",
     "controller",
     "mvc",
     "express",
     "api",
-    "rest",
-    "crud"
+    "rest"
   ],
   "author": "meyler.it",
   "license": "ISC",
   "dependencies": {
     "espree": "^9.3.3"
+  },
+  "devDependencies": {
+    "express": "^4.18.1"
   }
 }

@@ -28,7 +28,7 @@ export const attachComments = (data, comments, start = 0) => {
                 i--
             }
         }
-        item = this.attachComments(item, comments, item.start)
+        item = attachComments(item, comments, item.start)
         start = item.end
     })
 

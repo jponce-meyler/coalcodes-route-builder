@@ -1,12 +1,18 @@
-import * as path from 'path';
 import builder from "../../index.js";
+import express from "express";
 
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+builder('./controllers', './routes')
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-console.log(__filename)
-console.log(__dirname)
-console.log(builder.Route)
-console.log(builder.Builder)
+import Routing from './routes/index.js'
+const app = express();
+app.use((req, res, next) => {
+    req.user = {
+        role: 'ADMIN'
+    }
+    next()
+})
+app.use(Routing(new express.Router()));
+app.listen(3000, () => {
+    console.log('listening on port 3000')
+})
+

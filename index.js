@@ -1,11 +1,12 @@
 import BuilderClass  from "./classes/Builder.js";
-import RouteClass   from "./classes/Route.js";
 
 const builder = (source, destination, options) => {
     try {
-        return (new BuilderClass(source, destination, options)).build()
+        let test = new BuilderClass(source, destination, options)
+        let result = test.build()
+        return test.build()
     } catch (error) {
-        if (process.env === 'development' || process.debug === true) {
+        if (process.env.NODE_ENV === 'development' || process.env.DEBUG === true) {
             console.log(error)
         }
         return []
@@ -14,9 +15,7 @@ const builder = (source, destination, options) => {
 
 // awful hack to use the builder's classes with any import
 builder.Builder = BuilderClass;
-builder.Route = RouteClass;
 
 export const Builder = BuilderClass;
-export const Route = RouteClass;
 
 export default builder;
