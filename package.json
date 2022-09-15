@@ -1,6 +1,6 @@
 {
   "name": "coalcodes-route-builder",
-  "version": "0.0.0-beta.1",
+  "version": "0.0.0-beta.2",
   "description": "A library to create routes based on comments (like symfony) or configurations (like yaml, json, etc)",
   "main": "index.js",
   "scripts": {

@@ -25,12 +25,15 @@ export const extractRoutesFromProgram = (data, file) => {
     let routes = methods.map(item => {
         let comments = [...item.leadingComments || []]
         let route = extractRouteFromComment(comments.reduce((prev, curr) => prev + ' ' + curr.value, ''))
+        if (!route) {
+            return null
+        }
         route.file = file.split('\\').join('/')
         route.className = currentClass.id.name
         route.classMethod = item.key.name
         return route
-    })
-    if (parent) {
+    }).filter(item => item !== null)
+    if (parent && routes.length) {
         if (parent.role && !Array.isArray(parent.role)) {
             parent.role = [parent.role]
         }
